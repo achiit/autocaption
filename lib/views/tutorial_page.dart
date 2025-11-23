@@ -18,7 +18,6 @@ class TutorialPage extends StatelessWidget {
           'How to Use',
           style: TextStyle(
             color: Colors.white,
-            fontFamily: 'Roboto',
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -35,7 +34,6 @@ class TutorialPage extends StatelessWidget {
                 fontSize: 36,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
-                fontFamily: 'Roboto',
                 height: 1.2,
               ),
             ),
@@ -45,7 +43,6 @@ class TutorialPage extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.white.withOpacity(0.6),
-                fontFamily: 'Roboto',
               ),
             ),
 
@@ -120,7 +117,6 @@ class TutorialPage extends StatelessWidget {
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
-                          fontFamily: 'Roboto',
                         ),
                       ),
                     ],
@@ -154,7 +150,6 @@ class TutorialPage extends StatelessWidget {
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
-                    fontFamily: 'Roboto',
                   ),
                 ),
               ),
@@ -196,11 +191,10 @@ class TutorialPage extends StatelessWidget {
             child: Center(
               child: Text(
                 stepNumber,
-                style: const TextStyle(
+                  style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
-                  fontFamily: 'Roboto',
                 ),
               ),
             ),
@@ -222,7 +216,6 @@ class TutorialPage extends StatelessWidget {
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
-                          fontFamily: 'Roboto',
                         ),
                       ),
                     ),
@@ -234,7 +227,6 @@ class TutorialPage extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.white.withOpacity(0.7),
-                    fontFamily: 'Roboto',
                     height: 1.4,
                   ),
                 ),
@@ -254,7 +246,6 @@ class TutorialPage extends StatelessWidget {
         style: const TextStyle(
           fontSize: 14,
           color: Colors.white,
-          fontFamily: 'Roboto',
         ),
       ),
     );

@@ -28,17 +28,6 @@ class VideoPlayerWidget extends StatelessWidget {
             // Video Player
             Chewie(controller: viewModel.chewieController!),
 
-            // Play/Pause Overlay
-            if (viewModel.videoController != null &&
-                !viewModel.videoController!.value.isPlaying)
-              const Center(
-                child: Icon(
-                  Icons.play_circle_outline,
-                  color: Colors.white,
-                  size: 50,
-                ),
-              ),
-
             // Caption Overlay
             if (viewModel.currentCaptionText.isNotEmpty)
               Positioned(

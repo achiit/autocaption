@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:showcaseview/showcaseview.dart';
 import 'core/theme/app_theme.dart';
 import 'viewmodels/video_viewmodel.dart';
 import 'views/splash_screen.dart';
@@ -18,14 +19,16 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => VideoViewModel(),
       child: MaterialApp(
-        title: 'Auto Caption AI',
+        title: 'PP Caption',
         theme: AppTheme.darkTheme,
         debugShowCheckedModeBanner: false,
         initialRoute: '/',
         routes: {
           '/': (context) => const SplashScreen(),
           '/onboarding': (context) => const OnboardingScreen(),
-          '/home': (context) => const HomeView(),
+          '/home': (context) => ShowCaseWidget(
+            builder: (context) => const HomeView(),
+          ),
         },
       ),
     );

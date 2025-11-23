@@ -121,9 +121,16 @@ class GeminiService {
 
     if (text == null) throw Exception("No response from Gemini");
 
-    // Clean up potential markdown code blocks
-    String cleanText =
-        text.replaceAll('```json', '').replaceAll('```', '').trim();
+    // Extract JSON array from response
+    final startIndex = text.indexOf('[');
+    final endIndex = text.lastIndexOf(']');
+
+    if (startIndex == -1 || endIndex == -1 || startIndex > endIndex) {
+      print("No JSON array found in response: $text");
+      throw Exception("Invalid response format from AI");
+    }
+
+    String cleanText = text.substring(startIndex, endIndex + 1);
 
     try {
       final List<dynamic> jsonList = jsonDecode(cleanText);

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Dark theme colors
@@ -17,7 +16,9 @@ class AppTheme {
       brightness: Brightness.dark,
       primaryColor: primaryPurple,
       scaffoldBackgroundColor: backgroundDark,
-      fontFamily: GoogleFonts.inter().fontFamily, // Inter font
+      
+      // Set default font family to local Inter
+      fontFamily: 'Inter',
 
       colorScheme: const ColorScheme.dark(
         primary: primaryPurple,
@@ -30,15 +31,16 @@ class AppTheme {
         onSurface: textPrimary,
       ),
 
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: backgroundDark,
         elevation: 0,
-        titleTextStyle: GoogleFonts.inter(
+        titleTextStyle: TextStyle(
+          fontFamily: 'Inter',
           color: textPrimary,
           fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
-        iconTheme: const IconThemeData(color: textPrimary),
+        iconTheme: IconThemeData(color: textPrimary),
       ),
 
       cardTheme: CardThemeData(
@@ -57,7 +59,8 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.inter(
+          textStyle: const TextStyle(
+            fontFamily: 'Inter',
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -71,84 +74,29 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-        hintStyle: GoogleFonts.inter(
+        hintStyle: const TextStyle(
+          fontFamily: 'Inter',
           color: textSecondary,
         ),
       ),
-
-      textTheme: TextTheme(
-        displayLarge: GoogleFonts.inter(
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          color: textPrimary,
-        ),
-        displayMedium: GoogleFonts.inter(
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          color: textPrimary,
-        ),
-        displaySmall: GoogleFonts.inter(
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
-          color: textPrimary,
-        ),
-        headlineLarge: GoogleFonts.inter(
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          color: textPrimary,
-        ),
-        headlineMedium: GoogleFonts.inter(
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
-          color: textPrimary,
-        ),
-        headlineSmall: GoogleFonts.inter(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: textPrimary,
-        ),
-        titleLarge: GoogleFonts.inter(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: textPrimary,
-        ),
-        titleMedium: GoogleFonts.inter(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-          color: textPrimary,
-        ),
-        titleSmall: GoogleFonts.inter(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: textPrimary,
-        ),
-        bodyLarge: GoogleFonts.inter(
-          fontSize: 16,
-          color: textPrimary,
-        ),
-        bodyMedium: GoogleFonts.inter(
-          fontSize: 14,
-          color: textPrimary,
-        ),
-        bodySmall: GoogleFonts.inter(
-          fontSize: 12,
-          color: textSecondary,
-        ),
-        labelLarge: GoogleFonts.inter(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: textPrimary,
-        ),
-        labelMedium: GoogleFonts.inter(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: textPrimary,
-        ),
-        labelSmall: GoogleFonts.inter(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          color: textSecondary,
-        ),
+      
+      // Ensure standard text styles also use Inter
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(fontFamily: 'Inter', color: textPrimary),
+        displayMedium: TextStyle(fontFamily: 'Inter', color: textPrimary),
+        displaySmall: TextStyle(fontFamily: 'Inter', color: textPrimary),
+        headlineLarge: TextStyle(fontFamily: 'Inter', color: textPrimary),
+        headlineMedium: TextStyle(fontFamily: 'Inter', color: textPrimary),
+        headlineSmall: TextStyle(fontFamily: 'Inter', color: textPrimary),
+        titleLarge: TextStyle(fontFamily: 'Inter', color: textPrimary),
+        titleMedium: TextStyle(fontFamily: 'Inter', color: textPrimary),
+        titleSmall: TextStyle(fontFamily: 'Inter', color: textPrimary),
+        bodyLarge: TextStyle(fontFamily: 'Inter', color: textPrimary),
+        bodyMedium: TextStyle(fontFamily: 'Inter', color: textPrimary),
+        bodySmall: TextStyle(fontFamily: 'Inter', color: textSecondary),
+        labelLarge: TextStyle(fontFamily: 'Inter', color: textPrimary),
+        labelMedium: TextStyle(fontFamily: 'Inter', color: textPrimary),
+        labelSmall: TextStyle(fontFamily: 'Inter', color: textSecondary),
       ),
     );
   }

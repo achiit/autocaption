@@ -60,7 +60,6 @@ class _ExamplesPageState extends State<ExamplesPage> {
           'Caption Examples',
           style: TextStyle(
             color: Colors.white,
-            fontFamily: 'Roboto',
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -77,7 +76,6 @@ class _ExamplesPageState extends State<ExamplesPage> {
                 fontSize: 36,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
-                fontFamily: 'Roboto',
                 height: 1.2,
               ),
             ),
@@ -87,7 +85,6 @@ class _ExamplesPageState extends State<ExamplesPage> {
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.white.withOpacity(0.6),
-                fontFamily: 'Roboto',
               ),
             ),
 
@@ -129,7 +126,6 @@ class _ExamplesPageState extends State<ExamplesPage> {
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.white.withOpacity(0.95),
-                        fontFamily: 'Roboto',
                       ),
                     ),
                   ),
@@ -208,7 +204,6 @@ class _ExamplesPageState extends State<ExamplesPage> {
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
-                      fontFamily: 'Roboto',
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -217,7 +212,6 @@ class _ExamplesPageState extends State<ExamplesPage> {
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.white.withOpacity(0.7),
-                      fontFamily: 'Roboto',
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -235,7 +229,6 @@ class _ExamplesPageState extends State<ExamplesPage> {
                           fontSize: 12,
                           color: accentColor,
                           fontWeight: FontWeight.w500,
-                          fontFamily: 'Roboto',
                         ),
                       ),
                     ],
@@ -351,7 +344,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           widget.title,
           style: const TextStyle(
             color: Colors.white,
-            fontFamily: 'Roboto',
           ),
         ),
       ),

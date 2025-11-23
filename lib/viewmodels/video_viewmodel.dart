@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:gal/gal.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:intl/intl.dart';
 import '../models/caption_model.dart';
 import '../services/gemini_service.dart';
 import '../services/video_export_service.dart';
@@ -33,6 +36,9 @@ class VideoViewModel extends ChangeNotifier {
   String _aspectRatioName = AppConstants.aspectRatio9x16;
   double _aspectRatio = AppConstants.aspectRatioVertical;
   String _selectedTemplate = 'classic';
+  
+  // Projects
+  List<Map<String, dynamic>> _projects = [];
 
   // Getters
   VideoPlayerController? get videoController => _videoController;
@@ -49,6 +55,50 @@ class VideoViewModel extends ChangeNotifier {
   String get selectedTemplate => _selectedTemplate;
   bool get hasVideo => _videoFile != null;
   bool get hasCaptions => _captions.isNotEmpty;
+  List<Map<String, dynamic>> get projects => _projects;
+
+  VideoViewModel() {
+    loadProjects();
+  }
+
+  /// Load saved projects
+  Future<void> loadProjects() async {
+    print("Loading projects...");
+    final prefs = await SharedPreferences.getInstance();
+    final String? projectsString = prefs.getString('projects');
+    if (projectsString != null) {
+      _projects = List<Map<String, dynamic>>.from(jsonDecode(projectsString));
+      print("Loaded ${_projects.length} projects");
+      notifyListeners();
+    } else {
+      print("No projects found in prefs");
+    }
+  }
+
+  /// Save project to history
+  Future<void> _saveProjectToHistory(String filePath) async {
+    print("Saving project to history: $filePath");
+    final prefs = await SharedPreferences.getInstance();
+    final project = {
+      'path': filePath,
+      'date': DateFormat('MMM d, yyyy').format(DateTime.now()),
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    };
+    _projects.insert(0, project);
+    final success = await prefs.setString('projects', jsonEncode(_projects));
+    print("Project saved to prefs: $success. Total projects: ${_projects.length}");
+    notifyListeners();
+  }
+
+  /// Delete project from history
+  Future<void> deleteProject(int index) async {
+    if (index >= 0 && index < _projects.length) {
+      _projects.removeAt(index);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('projects', jsonEncode(_projects));
+      notifyListeners();
+    }
+  }
 
   /// Pick and load video
   Future<void> pickVideo(File videoFile) async {
@@ -112,6 +162,7 @@ class VideoViewModel extends ChangeNotifier {
       _statusMessage = 'Captions generated!';
     } catch (e) {
       _statusMessage = 'Error: $e';
+      rethrow; // Rethrow to let UI handle error dialog
     } finally {
       _isProcessing = false;
       notifyListeners();
@@ -119,11 +170,15 @@ class VideoViewModel extends ChangeNotifier {
   }
 
   /// Export video with captions using Server API
-  Future<void> exportVideo() async {
+  Future<String> exportVideo({String? style}) async {
     if (_videoFile == null || _captions.isEmpty) {
       _statusMessage = 'No video or captions to export';
       notifyListeners();
-      return;
+      throw Exception('No video to export');
+    }
+
+    if (style != null) {
+      _selectedTemplate = style;
     }
 
     try {
@@ -146,12 +201,32 @@ class VideoViewModel extends ChangeNotifier {
         },
       );
 
-      // Share the video
-      await Share.shareXFiles([XFile(file.path)], text: 'My captioned video');
+      // Save to Gallery
+      _statusMessage = 'Saving to gallery...';
+      notifyListeners();
+      
+      try {
+        // Check permissions and save
+        if (await Gal.hasAccess() || await Gal.requestAccess()) {
+           await Gal.putVideo(file.path);
+           print("Video saved to gallery successfully");
+        } else {
+           print("Gallery access denied");
+        }
+      } catch (e) {
+        print("Error saving to gallery: $e");
+        // Don't rethrow, continue to save project history
+      }
+
+      // Save to history
+      await _saveProjectToHistory(file.path);
 
       _statusMessage = 'Export complete!';
+      return file.path;
     } catch (e) {
+      print("Export failed with error: $e");
       _statusMessage = 'Export failed: $e';
+      rethrow;
     } finally {
       _isProcessing = false;
       notifyListeners();

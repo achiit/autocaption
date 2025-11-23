@@ -18,7 +18,6 @@ class FeaturesPage extends StatelessWidget {
           'Features',
           style: TextStyle(
             color: Colors.white,
-            fontFamily: 'Roboto',
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -35,7 +34,6 @@ class FeaturesPage extends StatelessWidget {
                 fontSize: 36,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
-                fontFamily: 'Roboto',
                 height: 1.2,
               ),
             ),
@@ -45,7 +43,6 @@ class FeaturesPage extends StatelessWidget {
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.white.withOpacity(0.6),
-                fontFamily: 'Roboto',
               ),
             ),
 
@@ -142,7 +139,6 @@ class FeaturesPage extends StatelessWidget {
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
-                    fontFamily: 'Roboto',
                   ),
                 ),
               ),
@@ -198,7 +194,6 @@ class FeaturesPage extends StatelessWidget {
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
-                    fontFamily: 'Roboto',
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -207,7 +202,6 @@ class FeaturesPage extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.white.withOpacity(0.7),
-                    fontFamily: 'Roboto',
                     height: 1.4,
                   ),
                 ),
