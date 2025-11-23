@@ -1,6 +1,6 @@
 class ApiConstants {
   // Gemini API
-  static const String geminiApiKey = '';
+  static const String geminiApiKey = 'AIzaSyA66yKPqsNNG_I5AJ9W1_0UTNyRWrmScNU';
   static const String geminiUploadUrl =
       'https://generativelanguage.googleapis.com/upload/v1beta/files';
   static const String geminiFilesUrl =
