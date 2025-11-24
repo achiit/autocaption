@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TutorialPage extends StatelessWidget {
   const TutorialPage({super.key});
@@ -21,6 +22,12 @@ class TutorialPage extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: Colors.white),
+            onPressed: () => _showApiKeyDialog(context),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -158,6 +165,63 @@ class TutorialPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _showApiKeyDialog(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    String? currentKey = prefs.getString('custom_gemini_key');
+    final controller = TextEditingController(text: currentKey);
+
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A1A),
+          title: const Text('Configure API Key', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Enter a custom Gemini API key. Leave empty to use the default key.',
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Gemini API Key',
+                  labelStyle: TextStyle(color: Colors.grey),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.grey),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFAB7FFF)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (controller.text.trim().isEmpty) {
+                  await prefs.remove('custom_gemini_key');
+                } else {
+                  await prefs.setString('custom_gemini_key', controller.text.trim());
+                }
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('Save', style: TextStyle(color: Color(0xFFAB7FFF))),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Widget _buildStepCard({

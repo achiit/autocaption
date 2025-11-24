@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
@@ -6,16 +7,19 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import '../core/constants/api_constants.dart';
 import '../models/caption_model.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 class GeminiService {
   /// Upload video file to Gemini (Resumable Upload)
-  Future<String?> uploadVideo(File file) async {
+  Future<String?> uploadVideo(File file, {String? apiKey}) async {
+    final key = apiKey ?? ApiConstants.geminiApiKey;
     int fileSize = await file.length();
     String? mimeType = lookupMimeType(file.path) ?? 'video/mp4';
     String displayName = file.path.split('/').last;
 
     // 1. Start Resumable Upload
     final startUrl = Uri.parse(
-      '${ApiConstants.geminiUploadUrl}?key=${ApiConstants.geminiApiKey}',
+      '${ApiConstants.geminiUploadUrl}?key=$key',
     );
     final startResponse = await http.post(
       startUrl,
@@ -32,6 +36,7 @@ class GeminiService {
     );
 
     if (startResponse.statusCode != 200) {
+      log("the api key is $key");
       print('Start upload failed: ${startResponse.body}');
       throw Exception('Failed to start upload: ${startResponse.body}');
     }
@@ -63,8 +68,9 @@ class GeminiService {
   }
 
   /// Poll for file processing status
-  Future<void> pollFileState(String fileUri) async {
-    final uriWithKey = Uri.parse('$fileUri?key=${ApiConstants.geminiApiKey}');
+  Future<void> pollFileState(String fileUri, {String? apiKey}) async {
+    final key = apiKey ?? ApiConstants.geminiApiKey;
+    final uriWithKey = Uri.parse('$fileUri?key=$key');
 
     while (true) {
       final response = await http.get(uriWithKey);
@@ -89,9 +95,11 @@ class GeminiService {
   Future<List<CaptionModel>> generateCaptions({
     required String fileUri,
     required String language,
+    String? apiKey,
   }) async {
+    final key = apiKey ?? ApiConstants.geminiApiKey;
     final model = GenerativeModel(
-        model: 'gemini-flash-latest', apiKey: ApiConstants.geminiApiKey);
+        model: 'gemini-flash-latest', apiKey: key);
 
     String languagePrompt = language;
     if (language == 'Hinglish') {

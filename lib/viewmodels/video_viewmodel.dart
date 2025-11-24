@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import '../models/caption_model.dart';
 import '../services/gemini_service.dart';
 import '../services/video_export_service.dart';
+import '../core/constants/api_constants.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/time_utils.dart';
 
@@ -140,26 +141,27 @@ class VideoViewModel extends ChangeNotifier {
 
     try {
       _isProcessing = true;
-      _statusMessage = 'Uploading video...';
+      _statusMessage = 'Initializing...';
       notifyListeners();
 
-      final fileUri = await _geminiService.uploadVideo(_videoFile!);
-      if (fileUri == null) throw Exception("Upload failed");
+      final prefs = await SharedPreferences.getInstance();
+      final customKey = prefs.getString('custom_gemini_key');
 
-      _statusMessage = 'Processing video...';
-      notifyListeners();
+      // Try with custom key if exists
+      if (customKey != null && customKey.isNotEmpty) {
+        try {
+          await _performCaptionGeneration(customKey);
+          return; // Success
+        } catch (e) {
+          print('Custom API key failed: $e. Retrying with default key.');
+          _statusMessage = 'Retrying with default key...';
+          notifyListeners();
+        }
+      }
 
-      await _geminiService.pollFileState(fileUri);
+      // Fallback or default
+      await _performCaptionGeneration(ApiConstants.geminiApiKey);
 
-      _statusMessage = 'Generating captions in $_selectedLanguage...';
-      notifyListeners();
-
-      _captions = await _geminiService.generateCaptions(
-        fileUri: fileUri,
-        language: _selectedLanguage,
-      );
-
-      _statusMessage = 'Captions generated!';
     } catch (e) {
       _statusMessage = 'Error: $e';
       rethrow; // Rethrow to let UI handle error dialog
@@ -167,6 +169,30 @@ class VideoViewModel extends ChangeNotifier {
       _isProcessing = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _performCaptionGeneration(String apiKey) async {
+      _statusMessage = 'Uploading video...';
+      notifyListeners();
+
+      final fileUri = await _geminiService.uploadVideo(_videoFile!, apiKey: apiKey);
+      if (fileUri == null) throw Exception("Upload failed");
+
+      _statusMessage = 'Processing video...';
+      notifyListeners();
+
+      await _geminiService.pollFileState(fileUri, apiKey: apiKey);
+
+      _statusMessage = 'Generating captions in $_selectedLanguage...';
+      notifyListeners();
+
+      _captions = await _geminiService.generateCaptions(
+        fileUri: fileUri,
+        language: _selectedLanguage,
+        apiKey: apiKey,
+      );
+
+      _statusMessage = 'Captions generated!';
   }
 
   /// Export video with captions using Server API
