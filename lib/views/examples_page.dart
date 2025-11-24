@@ -12,35 +12,35 @@ class ExamplesPage extends StatefulWidget {
 }
 
 class _ExamplesPageState extends State<ExamplesPage> {
-  final List<Map<String, String>> examples = [
+final List<Map<String, String>> examples = [
     {
       'title': 'Classic Style',
       'description': 'Yellow highlights, dark background',
-      'video': 'assets/videos/output_classic.mp4',
+      'video': 'https://drive.google.com/file/d/1gbTo_Dt8rbzhj5eIv3GszECkx7ndG0kT/view?usp=drive_link',
       'color': '0xFFFFD700',
     },
     {
       'title': 'Neon Glow',
       'description': 'Cyan glow effect, futuristic',
-      'video': 'assets/videos/output_neon.mp4',
+      'video': 'https://drive.google.com/file/d/1x1mcvchww4icN9JDkh1Mp1ghrsTs3EBq/view?usp=drive_link',
       'color': '0xFF00FFFF',
     },
     {
       'title': 'Bold Pop',
       'description': 'Red highlights, bold stroke',
-      'video': 'assets/videos/output_bold.mp4',
+      'video': 'https://drive.google.com/file/d/1c9hRF9ZLDBxIM97y098Kcfx1s0SZoZrM/view?usp=drive_link',
       'color': '0xFFFF4444',
     },
     {
       'title': 'Minimal Clean',
       'description': 'Clean white background',
-      'video': 'assets/videos/output_minimal.mp4',
+      'video': 'https://drive.google.com/file/d/1XVIKGGAu7A7pxj-wzQaYE2QLhveZVkQX/view?usp=drive_link',
       'color': '0xFFFFFFFF',
     },
     {
       'title': 'Gradient Style',
       'description': 'Purple gradient, gold accents',
-      'video': 'assets/videos/output_gradient.mp4',
+      'video': 'https://drive.google.com/file/d/1OJl4O6BGRLiUmuOPO5LeuArx5wZlG7Qo/view?usp=drive_link',
       'color': '0xFFAB7FFF',
     },
   ];
