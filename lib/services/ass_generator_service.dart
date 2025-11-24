@@ -1,5 +1,4 @@
 import '../models/caption_model.dart';
-import '../core/utils/time_utils.dart';
 
 class AssSubtitleGeneratorService {
   /// Generate ASS content from captions
@@ -13,8 +12,8 @@ class AssSubtitleGeneratorService {
     // 1. Header
     buffer.writeln('[Script Info]');
     buffer.writeln('ScriptType: v4.00+');
-    buffer.writeln('PlayResX: 1080'); // Reference resolution width
-    buffer.writeln('PlayResY: 1920'); // Reference resolution height
+    buffer.writeln('PlayResX: 1080');
+    buffer.writeln('PlayResY: 1920'); // Working in 1080x1920 space
     buffer.writeln('WrapStyle: 0');
     buffer.writeln('ScaledBorderAndShadow: yes');
     buffer.writeln('');
@@ -24,18 +23,123 @@ class AssSubtitleGeneratorService {
     buffer.writeln(
         'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding');
 
-    // Define styles based on template
-    // Colors are in &HBBGGRR format (BGR)
-    // Alignment 2 is Bottom Center
+    // Scaling factor: Python sizes are likely for 720p/1280p (based on ffmpeg scale filter in python code)
+    // We are using PlayResY=1920. 1920 / 1280 = 1.5.
+    const double scale = 1.5;
 
-    // Default/Classic Style (Yellow Highlight)
-    // Primary: White (&H00FFFFFF), Outline: Black (&H00000000)
-    buffer.writeln(
-        'Style: Default,$fontName,70,&H00FFFFFF,&H0000FFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3,0,2,20,20,150,1');
+    // Default values
+    double fontSize = 52 * scale;
+    String primaryColor = _toAssColor(255, 255, 255, 255);
+    String outlineColor =
+        _toAssColor(0, 0, 0, 255); // Used for Border or Box Background
+    String backColor = _toAssColor(0, 0, 0, 128); // Shadow
+    String highlightColor = _toAssColor(255, 255, 0, 255);
 
-    // Highlight Style (Yellow)
+    int borderStyle = 1; // 1=Outline, 3=Opaque Box
+    double outlineWidth = 2.0;
+    double shadowDepth = 0.0;
+    int bold = -1; // -1 = True
+
+    // Apply Template Logic
+    switch (template.toLowerCase()) {
+      case 'neon':
+        // "Neon Glow"
+        // Font: 56 -> 84
+        // Bg: (20, 20, 40, 180) -> Dark Blue-ish Box?
+        // Python code draws a rounded rect with this color. So it IS a box.
+        // But it also says "has_glow".
+        // ASS can't easily do Box AND Glow on text.
+        // Let's prioritize the Box background as that's the main container.
+        // Or, if "Glow" is the main feature, maybe the box is subtle?
+        // Python: bg_color=(20, 20, 40, 180). It's a semi-transparent dark box.
+        // Highlight: Cyan.
+
+        fontSize = 56 * scale;
+        primaryColor = _toAssColor(255, 255, 255, 255);
+
+        // Box Background
+        borderStyle = 3;
+        outlineColor = _toAssColor(20, 20, 40, 180); // Box Color
+
+        highlightColor = _toAssColor(0, 255, 255, 255); // Cyan
+
+        // ASS doesn't support glow on text *inside* a box easily in one style.
+        // We will stick to the Box style to match the "container" look.
+        break;
+
+      case 'bold':
+        // "Bold Pop"
+        // Font: 60 -> 90
+        // Bg: Transparent -> No Box.
+        // Stroke: 4px Black.
+        // Highlight: Red.
+
+        fontSize = 60 * scale;
+        primaryColor = _toAssColor(255, 255, 255, 255);
+
+        borderStyle = 1; // Outline
+        outlineColor = _toAssColor(0, 0, 0, 255); // Black Stroke
+        outlineWidth = 4.0 * scale; // Scale stroke too? Maybe.
+
+        highlightColor = _toAssColor(255, 50, 50, 255); // Red
+        shadowDepth = 0;
+        break;
+
+      case 'minimal':
+        // "Minimal Clean"
+        // Font: 48 -> 72
+        // Bg: White (255, 255, 255, 200).
+        // Text: Black.
+        // Highlight: Orange.
+
+        fontSize = 48 * scale;
+        primaryColor = _toAssColor(0, 0, 0, 255); // Black Text
+
+        borderStyle = 3; // Box
+        outlineColor = _toAssColor(255, 255, 255, 200); // White Box
+
+        highlightColor = _toAssColor(255, 100, 0, 255); // Orange
+        break;
+
+      case 'gradient':
+        // "Gradient Style"
+        // Font: 54 -> 81
+        // Bg: (80, 0, 120, 160) -> Purple.
+        // Text: White.
+        // Highlight: Gold.
+
+        fontSize = 54 * scale;
+        primaryColor = _toAssColor(255, 255, 255, 255);
+
+        borderStyle = 3; // Box
+        outlineColor = _toAssColor(80, 0, 120, 160); // Purple Box
+
+        highlightColor = _toAssColor(255, 200, 0, 255); // Gold
+        break;
+
+      case 'classic':
+      default:
+        // "Classic"
+        // Font: 52 -> 78
+        // Bg: (0, 0, 0, 140).
+        // Text: White.
+        // Highlight: Yellow.
+
+        fontSize = 52 * scale;
+        primaryColor = _toAssColor(255, 255, 255, 255);
+
+        borderStyle = 3; // Box
+        outlineColor = _toAssColor(0, 0, 0, 140); // Black Box
+
+        highlightColor = _toAssColor(255, 255, 0, 255); // Yellow
+        break;
+    }
+
+    // Write the Style Line
+    // Note: In BorderStyle=3, Outline param controls nothing? Or box padding?
+    // Usually standard padding.
     buffer.writeln(
-        'Style: Highlight,$fontName,70,&H0000D7FF,&H0000FFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3,0,2,20,20,150,1');
+        'Style: Default,$fontName,$fontSize,$primaryColor,&H0000FFFF,$outlineColor,$backColor,$bold,0,0,0,100,100,0,0,$borderStyle,$outlineWidth,$shadowDepth,2,20,20,150,1');
 
     buffer.writeln('');
 
@@ -45,16 +149,6 @@ class AssSubtitleGeneratorService {
         'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text');
 
     for (final caption in captions) {
-      // We need to generate a dialogue line for EACH word state to simulate karaoke highlighting
-      // Or use actual karaoke tags {\k} if we want smooth transitions, but block highlighting is easier to match the Flutter UI.
-
-      // Approach: For each word in the caption, generate a dialogue line where that word is highlighted.
-      // Actually, a better approach for "karaoke" style in ASS without complex tags is to have the full line,
-      // but use inline color tags for the active word.
-
-      // Let's iterate through the words and create time-segmented lines
-
-      // If no words, just show full text
       if (caption.words.isEmpty) {
         final start = _formatAssTime(caption.start);
         final end = _formatAssTime(caption.end);
@@ -63,51 +157,38 @@ class AssSubtitleGeneratorService {
         continue;
       }
 
-      // If we have words, we need to be careful. The caption has a total start/end.
-      // The words have their own start/end.
-      // We want to show the FULL text, but highlight the CURRENT word.
-
-      // We can create a sequence of Dialogue events, one for each word's duration.
       for (int i = 0; i < caption.words.length; i++) {
         final currentWord = caption.words[i];
-
-        // Determine start and end for this "frame" of the caption
-        // Start is the start of the current word
-        // End is the start of the next word, OR the end of the caption if it's the last word
 
         String startTime = currentWord.start;
         String endTime = currentWord.end;
 
-        // Adjust start time for the first word to match caption start if needed
         if (i == 0) startTime = caption.start;
 
-        // Adjust end time for last word
         if (i == caption.words.length - 1)
           endTime = caption.end;
         else {
-          // Gap filling: make sure this frame lasts until the next word starts
           endTime = caption.words[i + 1].start;
         }
 
         final assStart = _formatAssTime(startTime);
         final assEnd = _formatAssTime(endTime);
 
-        // Build the text with highlighting
         final textBuffer = StringBuffer();
         for (int j = 0; j < caption.words.length; j++) {
           final word = caption.words[j];
 
           if (j == i) {
-            // Active word - Yellow
-            textBuffer.write('{\\c&H00D7FF&}${word.word}{\\c&HFFFFFF&} ');
-          } else if (j < i) {
-            // Already spoken - White (or keep yellow if we want trailing highlight)
-            // User UI shows only current word yellow? Or accumulated?
-            // Looking at the code: i < highlightedWordCount ? Colors.yellow : Colors.white
-            // So previous words stay yellow!
-            textBuffer.write('{\\c&H00D7FF&}${word.word}{\\c&HFFFFFF&} ');
+            // Active word - Highlight Color
+            // Strip &H from our helper output for the tag
+            // Helper returns &HBBGGRR
+            final colorCode = highlightColor.replaceAll('&H', '');
+            final primaryCode = primaryColor.replaceAll('&H', '');
+
+            textBuffer
+                .write('{\\c&H$colorCode&}${word.word}{\\c&H$primaryCode&} ');
           } else {
-            // Future words - White
+            // Other words - Primary Color
             textBuffer.write('${word.word} ');
           }
         }
@@ -120,11 +201,23 @@ class AssSubtitleGeneratorService {
     return buffer.toString();
   }
 
+  /// Convert RGBA (0-255) to ASS Color &HBBGGRR
+  String _toAssColor(int r, int g, int b, int a) {
+    // ASS Alpha: 00 (Opaque) - FF (Transparent)
+    // Input Alpha: 255 (Opaque) - 0 (Transparent)
+    final assAlpha = (255 - a).clamp(0, 255);
+
+    final aa = assAlpha.toRadixString(16).padLeft(2, '0').toUpperCase();
+    final bb = b.toRadixString(16).padLeft(2, '0').toUpperCase();
+    final gg = g.toRadixString(16).padLeft(2, '0').toUpperCase();
+    final rr = r.toRadixString(16).padLeft(2, '0').toUpperCase();
+
+    // Format: &HAABBGGRR
+    return '&H$aa$bb$gg$rr';
+  }
+
   /// Convert MM:SS:mmm to H:MM:SS.cc (ASS format)
   String _formatAssTime(String timestamp) {
-    // Input: 00:00:000 (MM:SS:mmm)
-    // Output: 0:00:00.00 (H:MM:SS.cc)
-
     try {
       final parts = timestamp.split(':');
       if (parts.length != 3) return '0:00:00.00';
@@ -136,7 +229,6 @@ class AssSubtitleGeneratorService {
       int hours = minutes ~/ 60;
       minutes = minutes % 60;
 
-      // ASS uses centiseconds (1/100th of a second)
       int centiseconds = milliseconds ~/ 10;
 
       return '$hours:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}.${centiseconds.toString().padLeft(2, '0')}';
