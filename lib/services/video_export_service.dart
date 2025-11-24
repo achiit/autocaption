@@ -1,74 +1,16 @@
-import 'dart:convert';
 import 'dart:io';
-import 'package:dio/dio.dart';
-import '../core/constants/api_constants.dart';
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/return_code.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import '../models/caption_model.dart';
+import 'ass_generator_service.dart';
 
 class VideoExportService {
-  final Dio _dio = Dio();
+  final AssSubtitleGeneratorService _assGenerator =
+      AssSubtitleGeneratorService();
 
-  /// Upload video to server for processing
-  Future<String> uploadVideo({
-    required File videoFile,
-    required List<CaptionModel> captions,
-    required String aspectRatio,
-    required String template,
-  }) async {
-    FormData formData = FormData.fromMap({
-      'video': await MultipartFile.fromFile(
-        videoFile.path,
-        filename: 'video.mp4',
-      ),
-      'captions': jsonEncode(captions.map((c) => c.toJson()).toList()),
-      'aspect_ratio': aspectRatio,
-      'template': template,
-    });
-
-    final response = await _dio.post(
-      '${ApiConstants.serverUrl}${ApiConstants.uploadEndpoint}',
-      data: formData,
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Upload failed: ${response.statusMessage}');
-    }
-
-    return response.data['job_id'] as String;
-  }
-
-  /// Poll for processing status
-  Future<Map<String, dynamic>> getJobStatus(String jobId) async {
-    final response = await _dio.get(
-      '${ApiConstants.serverUrl}${ApiConstants.statusEndpoint}/$jobId',
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Status check failed');
-    }
-
-    return response.data as Map<String, dynamic>;
-  }
-
-  /// Download processed video
-  Future<File> downloadVideo({
-    required String jobId,
-    required String savePath,
-  }) async {
-    final response = await _dio.get(
-      '${ApiConstants.serverUrl}${ApiConstants.downloadEndpoint}/$jobId',
-      options: Options(responseType: ResponseType.bytes),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Download failed');
-    }
-
-    final file = File(savePath);
-    await file.writeAsBytes(response.data);
-    return file;
-  }
-
-  /// Complete export flow with status polling
+  /// Export video with captions using on-device FFmpeg
   Future<File> exportVideo({
     required File videoFile,
     required List<CaptionModel> captions,
@@ -77,38 +19,70 @@ class VideoExportService {
     required String outputPath,
     required Function(String) onStatusUpdate,
   }) async {
-    // Upload
-    onStatusUpdate('Uploading video...');
-    final jobId = await uploadVideo(
-      videoFile: videoFile,
-      captions: captions,
-      aspectRatio: aspectRatio,
-      template: template,
-    );
-
-    // Poll for completion
-    while (true) {
-      final status = await getJobStatus(jobId);
-      final statusStr = status['status'] as String;
-      final progress = status['progress'] as int? ?? 0;
-
-      onStatusUpdate('Processing: $progress%');
-
-      if (statusStr == 'completed') {
-        break;
-      } else if (statusStr == 'failed') {
-        final error = status['error'] as String? ?? 'Unknown error';
-        throw Exception('Processing failed: $error');
+    try {
+      // 1. Prepare Environment
+      onStatusUpdate('Preparing resources...');
+      final tempDir = await getTemporaryDirectory();
+      final fontsDir = Directory('${tempDir.path}/fonts');
+      if (!await fontsDir.exists()) {
+        await fontsDir.create(recursive: true);
       }
 
-      await Future.delayed(const Duration(seconds: 2));
+      // 2. Copy Font (Inter)
+      final fontFile = File('${fontsDir.path}/Inter.ttf');
+      if (!await fontFile.exists()) {
+        final fontData = await rootBundle.load('assets/fonts/inter.ttf');
+        await fontFile.writeAsBytes(
+          fontData.buffer.asUint8List(
+            fontData.offsetInBytes,
+            fontData.lengthInBytes,
+          ),
+        );
+      }
+
+      // 3. Generate ASS Subtitles
+      onStatusUpdate('Generating subtitles...');
+      final assContent = _assGenerator.generateAssContent(
+        captions: captions,
+        fontName: 'Inter',
+        template: template,
+      );
+
+      final assFile = File('${tempDir.path}/captions.ass');
+      await assFile.writeAsString(assContent);
+
+      // 4. Run FFmpeg
+      onStatusUpdate('Rendering video...');
+
+      // Construct command
+      // -vf "ass=captions.ass:fontsdir=fonts"
+      // Note: We need to escape paths properly for FFmpeg
+      final inputPath = videoFile.path;
+      final assPath = assFile.path;
+      final fontsPath = fontsDir.path;
+
+      // FFmpeg command to burn subtitles
+      // Using libx264 for compatibility
+      // -preset ultrafast for speed on mobile
+      final command =
+          '-i "$inputPath" -vf "ass=\'$assPath\':fontsdir=\'$fontsPath\'" -c:v libx264 -preset ultrafast -c:a copy "$outputPath"';
+
+      print('FFmpeg Command: $command');
+
+      final session = await FFmpegKit.execute(command);
+      final returnCode = await session.getReturnCode();
+
+      if (ReturnCode.isSuccess(returnCode)) {
+        onStatusUpdate('Export complete!');
+        return File(outputPath);
+      } else {
+        final logs = await session.getAllLogsAsString();
+        print('FFmpeg Error Logs: $logs');
+        throw Exception('FFmpeg failed with return code $returnCode');
+      }
+    } catch (e) {
+      print('Export Error: $e');
+      throw Exception('Failed to export video: $e');
     }
-
-    // Download
-    onStatusUpdate('Downloading...');
-    final file = await downloadVideo(jobId: jobId, savePath: outputPath);
-    onStatusUpdate('Complete!');
-
-    return file;
   }
 }
