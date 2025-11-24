@@ -89,8 +89,8 @@ class _HomeViewState extends State<HomeView> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFAB7FFF),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     minimumSize: const Size(50, 24),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: RoundedRectangleBorder(
@@ -124,7 +124,7 @@ class _HomeViewState extends State<HomeView> {
       if (!mounted) return;
       // Show Info Dialog first
       await InfoDialog.show(context);
-      
+
       // Then start Showcase
       if (!mounted) return;
       ShowCaseWidget.of(context).startShowCase([
@@ -132,7 +132,7 @@ class _HomeViewState extends State<HomeView> {
         _languageKey,
         _generateKey,
       ]);
-      
+
       // Mark as seen
       await prefs.setBool('is_first_time', false);
     }
@@ -142,6 +142,20 @@ class _HomeViewState extends State<HomeView> {
   void dispose() {
     _timelineController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleExit() async {
+    final shouldExit = await ConfirmExitDialog.show(context);
+    if (shouldExit && mounted) {
+      // Reset state before leaving
+      await context.read<VideoViewModel>().resetState();
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/onboarding',
+          (route) => false,
+        );
+      }
+    }
   }
 
   @override
@@ -155,10 +169,7 @@ class _HomeViewState extends State<HomeView> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        final shouldExit = await ConfirmExitDialog.show(context);
-        if (shouldExit && context.mounted) {
-          Navigator.of(context).pushReplacementNamed('/onboarding');
-        }
+        await _handleExit();
       },
       child: Scaffold(
         backgroundColor: backgroundColor,
@@ -201,8 +212,8 @@ class _HomeViewState extends State<HomeView> {
 
                     // Timeline Ruler / Header
                     Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       child: Row(
                         children: [
                           const Icon(Icons.subtitles,
@@ -241,10 +252,14 @@ class _HomeViewState extends State<HomeView> {
     return AppBar(
       backgroundColor: const Color(0xFF0F0F0F),
       elevation: 0,
-      title: const Text(
-        'PP Captions',
-        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+        onPressed: _handleExit,
       ),
+      // title: const Text(
+      //   'PP Captions',
+      //   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+      // ),
       actions: [
         // Status Indicator
         Consumer<VideoViewModel>(
@@ -291,65 +306,66 @@ class _HomeViewState extends State<HomeView> {
             builder: (context, vm, child) {
               return DropdownButtonHideUnderline(
                 child: DropdownButton2<String>(
-                isExpanded: true,
-                customButton: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    color: Colors.white.withOpacity(0.1),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(LucideIcons.languages,
-                          size: 16, color: Colors.white),
-                      const SizedBox(width: 4),
-                      Text(
-                        vm.selectedLanguage,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              items: AppConstants.supportedLanguages
-                    .map((item) => DropdownMenuItem<String>(
-                          value: item,
-                          child: Text(
-                            item,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.white,
-                            ),
+                  isExpanded: true,
+                  customButton: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.white.withOpacity(0.1),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(LucideIcons.languages,
+                            size: 16, color: Colors.white),
+                        const SizedBox(width: 4),
+                        Text(
+                          vm.selectedLanguage,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
-                      ))
-                  .toList(),
-                value: vm.selectedLanguage,
-              onChanged: vm.isProcessing
-                  ? null
-                  : (value) {
-                      if (value != null) vm.setLanguage(value);
-                    },
-                dropdownStyleData: DropdownStyleData(
-                  width: 120,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: const Color(0xFF2A2A2A),
+                        ),
+                      ],
+                    ),
                   ),
-                  offset: const Offset(0, -4),
+                  items: AppConstants.supportedLanguages
+                      .map((item) => DropdownMenuItem<String>(
+                            value: item,
+                            child: Text(
+                              item,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ))
+                      .toList(),
+                  value: vm.selectedLanguage,
+                  onChanged: vm.isProcessing
+                      ? null
+                      : (value) {
+                          if (value != null) vm.setLanguage(value);
+                        },
+                  dropdownStyleData: DropdownStyleData(
+                    width: 120,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: const Color(0xFF2A2A2A),
+                    ),
+                    offset: const Offset(0, -4),
+                  ),
+                  menuItemStyleData: const MenuItemStyleData(
+                    height: 36,
+                  ),
                 ),
-                menuItemStyleData: const MenuItemStyleData(
-                  height: 36,
-                ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
-      ),
-      const SizedBox(width: 8),
+        const SizedBox(width: 8),
 
         // Export Button
         Consumer<VideoViewModel>(
@@ -370,7 +386,8 @@ class _HomeViewState extends State<HomeView> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => ExportProgressPage(style: selectedStyle),
+                            builder: (context) =>
+                                ExportProgressPage(style: selectedStyle),
                           ),
                         );
                       }
@@ -412,9 +429,9 @@ class _HomeViewState extends State<HomeView> {
                   fontSize: 10,
                   fontFamily: 'Monospace',
                 ),
-        ),
+              ),
 
-        const Spacer(),
+              const Spacer(),
 
               // Controls
               Row(
@@ -432,9 +449,9 @@ class _HomeViewState extends State<HomeView> {
                     icon: const Icon(Icons.replay_5,
                         size: 20, color: Colors.white70),
                   ),
-                  
+
                   const SizedBox(width: 12),
-                  
+
                   // Play/Pause
                   Container(
                     width: 36,
@@ -460,7 +477,7 @@ class _HomeViewState extends State<HomeView> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(width: 12),
 
                   // Forward 5s
@@ -488,14 +505,14 @@ class _HomeViewState extends State<HomeView> {
                   child: DropdownButton2<String>(
                     isExpanded: true,
                     items: [
-                DropdownMenuItem(
-                  value: AppConstants.aspectRatio9x16,
+                      DropdownMenuItem(
+                        value: AppConstants.aspectRatio9x16,
                         child: const Text('9:16',
                             style:
                                 TextStyle(fontSize: 12, color: Colors.white)),
-                ),
-                DropdownMenuItem(
-                  value: AppConstants.aspectRatio16x9,
+                      ),
+                      DropdownMenuItem(
+                        value: AppConstants.aspectRatio16x9,
                         child: const Text('16:9',
                             style:
                                 TextStyle(fontSize: 12, color: Colors.white)),
@@ -653,10 +670,22 @@ class _HomeViewState extends State<HomeView> {
               icon: LucideIcons.plusCircle,
               label: 'New Video',
               onTap: () async {
-                final picker = ImagePicker();
-                final video = await picker.pickVideo(source: ImageSource.gallery);
-                if (video != null && mounted) {
-                  context.read<VideoViewModel>().pickVideo(File(video.path));
+                try {
+                  final picker = ImagePicker();
+                  final video =
+                      await picker.pickVideo(source: ImageSource.gallery);
+                  if (video != null && mounted) {
+                    context.read<VideoViewModel>().pickVideo(File(video.path));
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error picking video: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }
               },
             ),
@@ -705,7 +734,8 @@ class _HomeViewState extends State<HomeView> {
                               } catch (e) {
                                 if (context.mounted) {
                                   LoadingDialog.hide(context);
-                                  ErrorDialog.show(context, error: e.toString());
+                                  ErrorDialog.show(context,
+                                      error: e.toString());
                                 }
                               }
                             }

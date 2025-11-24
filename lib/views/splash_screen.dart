@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import '../services/permission_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -39,12 +40,22 @@ class _SplashScreenState extends State<SplashScreen>
 
     _controller.forward();
 
-    // Navigate to onboarding after 2.5 seconds
-    Timer(const Duration(milliseconds: 2500), () {
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/onboarding');
-      }
-    });
+    _handleStartup();
+  }
+
+  Future<void> _handleStartup() async {
+    // Wait for animation and minimum splash time
+    await Future.delayed(const Duration(milliseconds: 2500));
+
+    if (!mounted) return;
+
+    // TODO: Fix permission_handler in release mode (R8/ProGuard issue)
+    // Request permissions
+    await PermissionService.requestPermissions();
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacementNamed('/onboarding');
   }
 
   @override

@@ -37,7 +37,7 @@ class VideoViewModel extends ChangeNotifier {
   String _aspectRatioName = AppConstants.aspectRatio9x16;
   double _aspectRatio = AppConstants.aspectRatioVertical;
   String _selectedTemplate = 'classic';
-  
+
   // Projects
   List<Map<String, dynamic>> _projects = [];
 
@@ -87,7 +87,8 @@ class VideoViewModel extends ChangeNotifier {
     };
     _projects.insert(0, project);
     final success = await prefs.setString('projects', jsonEncode(_projects));
-    print("Project saved to prefs: $success. Total projects: ${_projects.length}");
+    print(
+        "Project saved to prefs: $success. Total projects: ${_projects.length}");
     notifyListeners();
   }
 
@@ -161,7 +162,6 @@ class VideoViewModel extends ChangeNotifier {
 
       // Fallback or default
       await _performCaptionGeneration(ApiConstants.geminiApiKey);
-
     } catch (e) {
       _statusMessage = 'Error: $e';
       rethrow; // Rethrow to let UI handle error dialog
@@ -172,27 +172,28 @@ class VideoViewModel extends ChangeNotifier {
   }
 
   Future<void> _performCaptionGeneration(String apiKey) async {
-      _statusMessage = 'Uploading video...';
-      notifyListeners();
+    _statusMessage = 'Uploading video...';
+    notifyListeners();
 
-      final fileUri = await _geminiService.uploadVideo(_videoFile!, apiKey: apiKey);
-      if (fileUri == null) throw Exception("Upload failed");
+    final fileUri =
+        await _geminiService.uploadVideo(_videoFile!, apiKey: apiKey);
+    if (fileUri == null) throw Exception("Upload failed");
 
-      _statusMessage = 'Processing video...';
-      notifyListeners();
+    _statusMessage = 'Processing video...';
+    notifyListeners();
 
-      await _geminiService.pollFileState(fileUri, apiKey: apiKey);
+    await _geminiService.pollFileState(fileUri, apiKey: apiKey);
 
-      _statusMessage = 'Generating captions in $_selectedLanguage...';
-      notifyListeners();
+    _statusMessage = 'Generating captions in $_selectedLanguage...';
+    notifyListeners();
 
-      _captions = await _geminiService.generateCaptions(
-        fileUri: fileUri,
-        language: _selectedLanguage,
-        apiKey: apiKey,
-      );
+    _captions = await _geminiService.generateCaptions(
+      fileUri: fileUri,
+      language: _selectedLanguage,
+      apiKey: apiKey,
+    );
 
-      _statusMessage = 'Captions generated!';
+    _statusMessage = 'Captions generated!';
   }
 
   /// Export video with captions using Server API
@@ -230,14 +231,14 @@ class VideoViewModel extends ChangeNotifier {
       // Save to Gallery
       _statusMessage = 'Saving to gallery...';
       notifyListeners();
-      
+
       try {
         // Check permissions and save
         if (await Gal.hasAccess() || await Gal.requestAccess()) {
-           await Gal.putVideo(file.path);
-           print("Video saved to gallery successfully");
+          await Gal.putVideo(file.path);
+          print("Video saved to gallery successfully");
         } else {
-           print("Gallery access denied");
+          print("Gallery access denied");
         }
       } catch (e) {
         print("Error saving to gallery: $e");
@@ -346,6 +347,22 @@ class VideoViewModel extends ChangeNotifier {
   /// Change template selection
   void setTemplate(String template) {
     _selectedTemplate = template;
+    notifyListeners();
+  }
+
+  /// Reset state to initial values
+  Future<void> resetState() async {
+    _chewieController?.dispose();
+    _chewieController = null;
+    await _videoController?.dispose();
+    _videoController = null;
+    _videoFile = null;
+    _captions = [];
+    _currentCaptionText = '';
+    _currentCaptionWords = [];
+    _highlightedWordCount = 0;
+    _isProcessing = false;
+    _statusMessage = '';
     notifyListeners();
   }
 

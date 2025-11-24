@@ -5,6 +5,7 @@
 import FlutterMacOS
 import Foundation
 
+import device_info_plus
 import ffmpeg_kit_flutter_new
 import file_selector_macos
 import gal
@@ -16,6 +17,7 @@ import video_player_avfoundation
 import wakelock_plus
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
+  DeviceInfoPlusMacosPlugin.register(with: registry.registrar(forPlugin: "DeviceInfoPlusMacosPlugin"))
   FFmpegKitFlutterPlugin.register(with: registry.registrar(forPlugin: "FFmpegKitFlutterPlugin"))
   FileSelectorPlugin.register(with: registry.registrar(forPlugin: "FileSelectorPlugin"))
   GalPlugin.register(with: registry.registrar(forPlugin: "GalPlugin"))

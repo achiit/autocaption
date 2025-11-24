@@ -1,4 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:chewie/chewie.dart';
 import '../../viewmodels/video_viewmodel.dart';
@@ -14,10 +17,47 @@ class VideoPlayerWidget extends StatelessWidget {
         if (viewModel.chewieController == null) {
           return Container(
             color: Colors.black,
-            child: const Center(
-              child: Text(
-                'No video selected',
-                style: TextStyle(color: Colors.white),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(LucideIcons.video, size: 48, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'No video selected',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      try {
+                        final picker = ImagePicker();
+                        final video =
+                            await picker.pickVideo(source: ImageSource.gallery);
+                        if (video != null && context.mounted) {
+                          context
+                              .read<VideoViewModel>()
+                              .pickVideo(File(video.path));
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error picking video: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(LucideIcons.plus),
+                    label: const Text('Select Video'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFAB7FFF),
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
               ),
             ),
           );
