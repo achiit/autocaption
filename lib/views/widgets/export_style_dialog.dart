@@ -58,7 +58,7 @@ class _ExportStyleDialogState extends State<ExportStyleDialog> {
           border: Border.all(color: Colors.white10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -74,7 +74,7 @@ class _ExportStyleDialogState extends State<ExportStyleDialog> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFAB7FFF).withOpacity(0.1),
+                    color: const Color(0xFFAB7FFF).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -104,7 +104,7 @@ class _ExportStyleDialogState extends State<ExportStyleDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            Container(
+            SizedBox(
               height: 220, // Fixed height for grid
               child: GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -123,13 +123,12 @@ class _ExportStyleDialogState extends State<ExportStyleDialog> {
                       duration: const Duration(milliseconds: 200),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? style['color'].withOpacity(0.2)
+                            ? style['color'].withValues(alpha: 0.2)
                             : const Color(0xFF2A2A2A),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: isSelected
-                              ? style['color']
-                              : Colors.transparent,
+                          color:
+                              isSelected ? style['color'] : Colors.transparent,
                           width: 2,
                         ),
                       ),
@@ -204,4 +203,3 @@ class _ExportStyleDialogState extends State<ExportStyleDialog> {
     );
   }
 }
-

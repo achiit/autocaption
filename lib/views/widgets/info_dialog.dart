@@ -32,12 +32,12 @@ class _InfoDialogState extends State<InfoDialog> {
           'Our advanced AI analyzes audio and generates accurate timestamps for every word.',
       'image': 'assets/slider3.png', // Placeholder
     },
-      {
-        'title': 'Preview & Export',
-        'description':
-            'Tap to seek through the timeline. Choose a style and export your masterpiece.',
-        'image': 'assets/slider2.png', // Placeholder
-      },
+    {
+      'title': 'Preview & Export',
+      'description':
+          'Tap to seek through the timeline. Choose a style and export your masterpiece.',
+      'image': 'assets/slider2.png', // Placeholder
+    },
   ];
 
   @override
@@ -122,7 +122,7 @@ class _InfoDialogState extends State<InfoDialog> {
                         slide['description']!,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
+                          color: Colors.white.withValues(alpha: 0.7),
                           fontSize: 14,
                           height: 1.4,
                         ),

@@ -25,7 +25,7 @@ class ConfirmExitDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
+                color: Colors.orange.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -48,7 +48,7 @@ class ConfirmExitDialog extends StatelessWidget {
               'Are you sure you want to go back? Any unsaved progress will be lost.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
             ),
@@ -90,4 +90,3 @@ class ConfirmExitDialog extends StatelessWidget {
     );
   }
 }
-

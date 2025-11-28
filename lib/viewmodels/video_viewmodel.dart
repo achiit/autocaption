@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../models/caption_model.dart';
+import '../services/voiceover_service.dart';
 import '../services/gemini_service.dart';
 import '../services/video_export_service.dart';
 import '../core/constants/api_constants.dart';
@@ -145,13 +146,33 @@ class VideoViewModel extends ChangeNotifier {
       _statusMessage = 'Initializing...';
       notifyListeners();
 
+      File videoToUpload = _videoFile!;
+
+      // Check for voiceover and merge if present
+      if (_recordedAudioPath != null) {
+        _statusMessage = 'Merging voiceover...';
+        notifyListeners();
+        try {
+          videoToUpload = await _exportService.mergeAudioVideo(
+            videoFile: _videoFile!,
+            audioPath: _recordedAudioPath!,
+            audioStart: _voiceoverStart,
+            audioEnd: _voiceoverEnd,
+          );
+        } catch (e) {
+          print("Error merging audio for captions: $e");
+          _statusMessage = 'Error merging audio: $e';
+          rethrow;
+        }
+      }
+
       final prefs = await SharedPreferences.getInstance();
       final customKey = prefs.getString('custom_gemini_key');
 
       // Try with custom key if exists
       if (customKey != null && customKey.isNotEmpty) {
         try {
-          await _performCaptionGeneration(customKey);
+          await _performCaptionGeneration(customKey, videoToUpload);
           return; // Success
         } catch (e) {
           print('Custom API key failed: $e. Retrying with default key.');
@@ -161,7 +182,7 @@ class VideoViewModel extends ChangeNotifier {
       }
 
       // Fallback or default
-      await _performCaptionGeneration(ApiConstants.geminiApiKey);
+      await _performCaptionGeneration(ApiConstants.geminiApiKey, videoToUpload);
     } catch (e) {
       _statusMessage = 'Error: $e';
       rethrow; // Rethrow to let UI handle error dialog
@@ -171,12 +192,11 @@ class VideoViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> _performCaptionGeneration(String apiKey) async {
+  Future<void> _performCaptionGeneration(String apiKey, File videoFile) async {
     _statusMessage = 'Uploading video...';
     notifyListeners();
 
-    final fileUri =
-        await _geminiService.uploadVideo(_videoFile!, apiKey: apiKey);
+    final fileUri = await _geminiService.uploadVideo(videoFile, apiKey: apiKey);
     if (fileUri == null) throw Exception("Upload failed");
 
     _statusMessage = 'Processing video...';
@@ -222,6 +242,9 @@ class VideoViewModel extends ChangeNotifier {
         aspectRatio: _aspectRatioName,
         template: _selectedTemplate,
         outputPath: outputPath,
+        voiceoverAudioPath: _recordedAudioPath,
+        voiceoverStart: _voiceoverStart,
+        voiceoverEnd: _voiceoverEnd,
         onStatusUpdate: (status) {
           _statusMessage = status;
           notifyListeners();
@@ -361,16 +384,98 @@ class VideoViewModel extends ChangeNotifier {
     _currentCaptionText = '';
     _currentCaptionWords = [];
     _highlightedWordCount = 0;
-    _isProcessing = false;
     _statusMessage = '';
+    notifyListeners();
+  }
+
+  // Voiceover State
+  final VoiceoverService _voiceoverService = VoiceoverService();
+  bool _isVoiceoverMode = false;
+  bool _isRecording = false;
+  String? _recordedAudioPath;
+
+  bool get isVoiceoverMode => _isVoiceoverMode;
+  bool get isRecording => _isRecording;
+  String? get recordedAudioPath => _recordedAudioPath;
+
+  // Trimming State
+  Duration? _voiceoverStart;
+  Duration? _voiceoverEnd;
+  Duration? get voiceoverStart => _voiceoverStart;
+  Duration? get voiceoverEnd => _voiceoverEnd;
+
+  void setVoiceoverTrim(Duration start, Duration end) {
+    _voiceoverStart = start;
+    _voiceoverEnd = end;
+    notifyListeners();
+  }
+
+  // Expose controller for UI
+  get recorderController => _voiceoverService.recorderController;
+
+  Future<void> toggleVoiceoverMode() async {
+    if (!_isVoiceoverMode) {
+      try {
+        await _voiceoverService.init();
+        _isVoiceoverMode = true;
+      } catch (e) {
+        _statusMessage = 'Microphone permission required';
+        notifyListeners();
+        return;
+      }
+    } else {
+      _isVoiceoverMode = false;
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteVoiceover() async {
+    await _voiceoverService.deleteRecording();
+    _recordedAudioPath = null;
+    _voiceoverStart = null;
+    _voiceoverEnd = null;
+    notifyListeners();
+  }
+
+  Future<void> startRecording() async {
+    try {
+      await _voiceoverService.startRecording();
+      _isRecording = true;
+      // Start video playback to sync
+      await _videoController?.play(); // Corrected from _videoPlayerController
+      notifyListeners();
+    } catch (e) {
+      print('Error starting recording: $e');
+    }
+  }
+
+  Future<void> stopRecording() async {
+    try {
+      print("Stopping recording...");
+      final path = await _voiceoverService.stopRecording();
+      print("Recording stopped. Path: $path");
+      _isRecording = false;
+      _recordedAudioPath = path;
+      // Stop video playback
+      await _videoController?.pause(); // Corrected from _videoPlayerController
+      notifyListeners();
+    } catch (e) {
+      print('Error stopping recording: $e');
+    }
+  }
+
+  void deleteRecording() {
+    _recordedAudioPath = null;
     notifyListeners();
   }
 
   @override
   void dispose() {
     _chewieController?.dispose();
-    _videoController?.removeListener(_updateCaptionOverlay);
+    _videoController?.removeListener(
+        _updateCaptionOverlay); // Keep existing listener removal
     _videoController?.dispose();
+    _voiceoverService.dispose(); // Add new dispose for voiceover service
     super.dispose();
   }
 }

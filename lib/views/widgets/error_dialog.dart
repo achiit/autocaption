@@ -26,7 +26,7 @@ class ErrorDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
+                color: Colors.red.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -49,7 +49,7 @@ class ErrorDialog extends StatelessWidget {
               'The service is not available. Please contact the developers.\n\nError: $error',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 14,
               ),
             ),
@@ -74,4 +74,3 @@ class ErrorDialog extends StatelessWidget {
     );
   }
 }
-

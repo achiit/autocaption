@@ -35,7 +35,7 @@ class _ExportProgressPageState extends State<ExportProgressPage> {
   @override
   void initState() {
     super.initState();
-    
+
     // Cycle messages
     _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (mounted) {
@@ -61,7 +61,7 @@ class _ExportProgressPageState extends State<ExportProgressPage> {
           MaterialPageRoute(
             builder: (context) => ExportSuccessPage(filePath: filePath),
           ),
-        ); 
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -86,7 +86,7 @@ class _ExportProgressPageState extends State<ExportProgressPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Spacer(),
-            
+
             // 3D Character Image Placeholder
             Container(
               height: 300,
@@ -115,7 +115,9 @@ class _ExportProgressPageState extends State<ExportProgressPage> {
                   Consumer<VideoViewModel>(
                     builder: (context, vm, child) {
                       return Text(
-                        vm.statusMessage.isEmpty ? 'Preparing...' : vm.statusMessage,
+                        vm.statusMessage.isEmpty
+                            ? 'Preparing...'
+                            : vm.statusMessage,
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: Colors.white,
@@ -133,7 +135,7 @@ class _ExportProgressPageState extends State<ExportProgressPage> {
                       _loadingMessages[_messageIndex],
                       key: ValueKey<int>(_messageIndex),
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                         fontSize: 14,
                       ),
                     ),
@@ -158,13 +160,13 @@ class _ExportProgressPageState extends State<ExportProgressPage> {
             ),
 
             const Spacer(),
-            
+
             // Cancel Button (Optional)
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
                 'Cancel',
-                style: TextStyle(color: Colors.white.withOpacity(0.4)),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
               ),
             ),
             const SizedBox(height: 20),
@@ -174,4 +176,3 @@ class _ExportProgressPageState extends State<ExportProgressPage> {
     );
   }
 }
-

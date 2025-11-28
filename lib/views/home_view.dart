@@ -14,6 +14,7 @@ import 'widgets/error_dialog.dart';
 import 'widgets/info_dialog.dart';
 import 'widgets/confirm_exit_dialog.dart';
 import 'widgets/export_style_dialog.dart';
+import 'widgets/voiceover_panel.dart';
 import 'export_progress_page.dart';
 
 class HomeView extends StatefulWidget {
@@ -174,73 +175,71 @@ class _HomeViewState extends State<HomeView> {
       child: Scaffold(
         backgroundColor: backgroundColor,
         appBar: _buildAppBar(context),
-        body: Column(
+        body: Stack(
           children: [
-            // 1. Video Preview Area (Top Half)
-            Expanded(
-              flex: 3,
-              child: Container(
-                color: Colors.black,
-                child: Center(
-                  child: Consumer<VideoViewModel>(
-                    builder: (context, viewModel, child) {
-                      return AspectRatio(
-                        aspectRatio: viewModel.aspectRatio,
-                        child: const VideoPlayerWidget(),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-
-            // 2. Timeline & Controls Area (Bottom Half)
-            Expanded(
-              flex: 2,
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: surfaceColor,
-                  border: Border(
-                    top: BorderSide(color: Colors.white10, width: 1),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Transport Controls (Play, Pause, Time)
-                    _buildTransportControls(primaryColor),
-
-                    // Timeline Ruler / Header
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.subtitles,
-                              size: 16, color: Colors.grey),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Captions Timeline',
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+            Column(
+              children: [
+                // 1. Video Preview Area (Top Half)
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    color: Colors.black,
+                    child: Center(
+                      child: Consumer<VideoViewModel>(
+                        builder: (context, viewModel, child) {
+                          return AspectRatio(
+                            aspectRatio: viewModel.aspectRatio,
+                            child: const VideoPlayerWidget(),
+                          );
+                        },
                       ),
                     ),
-
-                    // The Caption Timeline
-                    Expanded(
-                      child: _buildTimeline(primaryColor),
-                    ),
-
-                    // Bottom Action Bar
-                    _buildBottomToolbar(primaryColor),
-                  ],
+                  ),
                 ),
-              ),
+
+                // 2. Timeline & Controls Area (Bottom Half)
+                Expanded(
+                  flex: 2,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: surfaceColor,
+                      border: Border(
+                        top: BorderSide(color: Colors.white10, width: 1),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Transport Controls (Play, Pause, Time)
+                        _buildTransportControls(primaryColor),
+
+                        // The Timeline Area
+                        Expanded(
+                          child: _buildTimeline(primaryColor),
+                        ),
+
+                        // Bottom Action Bar
+                        _buildBottomToolbar(primaryColor),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // Voiceover Panel Overlay
+            Consumer<VideoViewModel>(
+              builder: (context, viewModel, child) {
+                if (viewModel.isVoiceoverMode) {
+                  return const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: VoiceoverPanel(),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
             ),
           ],
         ),
@@ -312,7 +311,7 @@ class _HomeViewState extends State<HomeView> {
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.5),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -367,6 +366,53 @@ class _HomeViewState extends State<HomeView> {
         ),
         const SizedBox(width: 8),
 
+        // Style Selector
+        Consumer<VideoViewModel>(
+          builder: (context, viewModel, child) {
+            return IconButton(
+              icon: const Icon(LucideIcons.paintBucket),
+              tooltip: 'Caption Style',
+              onPressed: viewModel.hasCaptions
+                  ? () async {
+                      final selectedStyle = await showDialog<String>(
+                        context: context,
+                        builder: (context) => const ExportStyleDialog(),
+                      );
+                      if (selectedStyle != null && context.mounted) {
+                        context
+                            .read<VideoViewModel>()
+                            .setTemplate(selectedStyle);
+                      }
+                    }
+                  : null,
+            );
+          },
+        ),
+        // Voiceover Toggle
+        Consumer<VideoViewModel>(
+          builder: (context, viewModel, child) {
+            return Container(
+              decoration: viewModel.isVoiceoverMode
+                  ? BoxDecoration(
+                      color: const Color(0xFFAB7FFF).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    )
+                  : null,
+              child: IconButton(
+                icon: Icon(
+                  LucideIcons.mic,
+                  color: viewModel.isVoiceoverMode
+                      ? const Color(0xFFAB7FFF)
+                      : Colors.white,
+                ),
+                tooltip: 'Voiceover',
+                onPressed: viewModel.hasVideo
+                    ? () => viewModel.toggleVoiceoverMode()
+                    : null,
+              ),
+            );
+          },
+        ),
         // Export Button
         Consumer<VideoViewModel>(
           builder: (context, viewModel, child) {

@@ -3,9 +3,9 @@ import 'dart:async';
 
 class LoadingDialog extends StatefulWidget {
   final String message;
-  
+
   const LoadingDialog({
-    super.key, 
+    super.key,
     this.message = 'Processing...',
   });
 
@@ -34,7 +34,7 @@ class _LoadingDialogState extends State<LoadingDialog> {
     'Applying magic...',
     'Almost there...',
   ];
-  
+
   int _currentMessageIndex = 0;
   late Timer _timer;
 
@@ -79,7 +79,7 @@ class _LoadingDialogState extends State<LoadingDialog> {
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Animated Text
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 500),
@@ -94,12 +94,12 @@ class _LoadingDialogState extends State<LoadingDialog> {
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 8),
               Text(
                 'Please wait, this may take a moment',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.5),
+                  color: Colors.white.withValues(alpha: 0.5),
                   fontSize: 12,
                 ),
               ),
@@ -110,4 +110,3 @@ class _LoadingDialogState extends State<LoadingDialog> {
     );
   }
 }
-
