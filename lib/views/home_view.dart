@@ -509,15 +509,12 @@ class _HomeViewState extends State<HomeView> {
                     child: IconButton(
                       padding: EdgeInsets.zero,
                       onPressed: () {
-                        if (viewModel.videoController != null) {
-                          isPlaying
-                              ? viewModel.videoController!.pause()
-                              : viewModel.videoController!.play();
-                          setState(() {});
-                        }
+                        viewModel.togglePlayback();
                       },
                       icon: Icon(
-                        isPlaying ? LucideIcons.pause : LucideIcons.play,
+                        viewModel.isPlaying
+                            ? LucideIcons.pause
+                            : LucideIcons.play,
                         color: Colors.black,
                         size: 20,
                       ),

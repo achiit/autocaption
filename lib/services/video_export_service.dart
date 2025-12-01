@@ -4,6 +4,7 @@ import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import '../models/caption_model.dart';
+import '../models/voiceover_segment.dart';
 import 'ass_generator_service.dart';
 
 class VideoExportService {
@@ -18,9 +19,7 @@ class VideoExportService {
     required String template,
     required String outputPath,
     required Function(String) onStatusUpdate,
-    String? voiceoverAudioPath,
-    Duration? voiceoverStart,
-    Duration? voiceoverEnd,
+    List<VoiceoverSegment> segments = const [],
   }) async {
     try {
       // 1. Prepare Environment
@@ -58,33 +57,44 @@ class VideoExportService {
       onStatusUpdate('Rendering video...');
 
       // Construct command
-      // -vf "ass=captions.ass:fontsdir=fonts"
-      // Note: We need to escape paths properly for FFmpeg
       final inputPath = videoFile.path;
       final assPath = assFile.path;
       final fontsPath = fontsDir.path;
 
-      // FFmpeg command to burn subtitles and mix audio
-      // Using libx264 for compatibility
-      // -preset ultrafast for speed on mobile
-
       String command;
-      if (voiceoverAudioPath != null) {
-        // Mix original audio and voiceover
-        // Input 0: Video
-        // Input 1: Voiceover Audio (Trimmed if needed)
+      if (segments.isNotEmpty) {
+        // Mix original audio and voiceover segments
+        // Inputs:
+        // 0: Video
+        // 1..N: Audio segments
 
-        String audioInput = '-i "$voiceoverAudioPath"';
-        if (voiceoverStart != null && voiceoverEnd != null) {
-          // Calculate duration
-          // -ss start -to end
-          final start = voiceoverStart.inMilliseconds / 1000.0;
-          final end = voiceoverEnd.inMilliseconds / 1000.0;
-          audioInput = '-ss $start -to $end -i "$voiceoverAudioPath"';
+        String inputs = '-i "$inputPath"';
+        String filterComplex = '';
+        String mixInputs = '[0:a]'; // Start with video audio
+
+        for (int i = 0; i < segments.length; i++) {
+          final segment = segments[i];
+          inputs += ' -i "${segment.filePath}"';
+
+          // Trim and Delay
+          final startSec = segment.sourceStart.inMilliseconds / 1000.0;
+          final endSec = segment.sourceEnd.inMilliseconds / 1000.0;
+          final delayMs = segment.videoStart.inMilliseconds;
+
+          filterComplex +=
+              '[${i + 1}:a]atrim=start=$startSec:end=$endSec,adelay=$delayMs|$delayMs[a$i];';
+          mixInputs += '[a$i]';
         }
 
+        // Mix all audio
+        filterComplex +=
+            '${mixInputs}amix=inputs=${segments.length + 1}:duration=first[a];';
+
+        // Add subtitles
+        filterComplex += '[0:v]ass=\'$assPath\':fontsdir=\'$fontsPath\'[v]';
+
         command =
-            '-i "$inputPath" $audioInput -filter_complex "[0:a][1:a]amix=inputs=2:duration=first[a];[0:v]ass=\'$assPath\':fontsdir=\'$fontsPath\'[v]" -map "[v]" -map "[a]" -c:v libx264 -preset ultrafast -c:a aac "$outputPath"';
+            '$inputs -filter_complex "$filterComplex" -map "[v]" -map "[a]" -c:v libx264 -preset ultrafast -c:a aac "$outputPath"';
       } else {
         // Standard export
         command =
@@ -112,27 +122,50 @@ class VideoExportService {
 
   Future<File> mergeAudioVideo({
     required File videoFile,
-    required String audioPath,
-    Duration? audioStart,
-    Duration? audioEnd,
+    required List<VoiceoverSegment> segments,
   }) async {
     try {
       final tempDir = await getTemporaryDirectory();
       final outputPath =
           '${tempDir.path}/merged_${DateTime.now().millisecondsSinceEpoch}.mp4';
 
-      String audioInput = '-i "$audioPath"';
-      if (audioStart != null && audioEnd != null) {
-        final start = audioStart.inMilliseconds / 1000.0;
-        final end = audioEnd.inMilliseconds / 1000.0;
-        audioInput = '-ss $start -to $end -i "$audioPath"';
+      if (segments.isEmpty) {
+        return videoFile;
       }
 
-      // Mix audio: [0:a] (video audio) + [1:a] (voiceover)
-      // We use -c:v copy to avoid re-encoding video (fast)
-      // We use -c:a aac for audio
+      // Build FFmpeg command
+      // Inputs:
+      // 0: Video
+      // 1..N: Audio segments
+
+      String inputs = '-i "${videoFile.path}"';
+      String filterComplex = '';
+      String mixInputs = '[0:a]'; // Start with video audio
+
+      for (int i = 0; i < segments.length; i++) {
+        final segment = segments[i];
+        inputs += ' -i "${segment.filePath}"';
+
+        // Trim and Delay
+        // [i+1:a]atrim=start=S:end=E,adelay=D|D[a_i]
+
+        final startSec = segment.sourceStart.inMilliseconds / 1000.0;
+        final endSec = segment.sourceEnd.inMilliseconds / 1000.0;
+        final delayMs = segment.videoStart.inMilliseconds;
+
+        // Note: adelay uses milliseconds
+        filterComplex +=
+            '[${i + 1}:a]atrim=start=$startSec:end=$endSec,adelay=$delayMs|$delayMs[a$i];';
+        mixInputs += '[a$i]';
+      }
+
+      // Mix all
+      // amix=inputs=N+1:duration=first[a]
+      filterComplex +=
+          '${mixInputs}amix=inputs=${segments.length + 1}:duration=first[a]';
+
       final command =
-          '-i "${videoFile.path}" $audioInput -filter_complex "[0:a][1:a]amix=inputs=2:duration=first[a]" -map 0:v -map "[a]" -c:v copy -c:a aac "$outputPath"';
+          '$inputs -filter_complex "$filterComplex" -map 0:v -map "[a]" -c:v copy -c:a aac "$outputPath"';
 
       print('FFmpeg Merge Command: $command');
 

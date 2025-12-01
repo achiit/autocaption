@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/video_viewmodel.dart';
 import 'voiceover_timeline.dart';
-import 'voiceover_editor.dart';
 
 class VoiceoverPanel extends StatelessWidget {
   const VoiceoverPanel({super.key});
@@ -28,11 +26,7 @@ class VoiceoverPanel extends StatelessWidget {
       ),
       child: Consumer<VideoViewModel>(
         builder: (context, viewModel, child) {
-          if (viewModel.recordedAudioPath != null) {
-            return VoiceoverEditor(file: File(viewModel.recordedAudioPath!));
-          } else {
-            return const VoiceoverTimeline();
-          }
+          return const VoiceoverTimeline();
         },
       ),
     );

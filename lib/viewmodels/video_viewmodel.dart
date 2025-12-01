@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
+
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:path_provider/path_provider.dart';
@@ -8,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../models/caption_model.dart';
+import '../models/voiceover_segment.dart';
 import '../services/voiceover_service.dart';
 import '../services/gemini_service.dart';
 import '../services/video_export_service.dart';
@@ -23,6 +26,8 @@ class VideoViewModel extends ChangeNotifier {
   // Video state
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  VoiceoverSegment? _currentPlayingSegment;
   File? _videoFile;
 
   // Caption state
@@ -61,6 +66,30 @@ class VideoViewModel extends ChangeNotifier {
 
   VideoViewModel() {
     loadProjects();
+    _configureAudioSession();
+  }
+
+  Future<void> _configureAudioSession() async {
+    final session = AudioContext(
+      android: AudioContextAndroid(
+        isSpeakerphoneOn: true,
+        stayAwake: true,
+        contentType: AndroidContentType.movie,
+        usageType: AndroidUsageType.media,
+        // CRITICAL CHANGE: Set to 'none'.
+        // We do not want the Voiceover to demand focus and kill the VideoPlayer.
+        audioFocus: AndroidAudioFocus.none,
+      ),
+      iOS: AudioContextIOS(
+        category: AVAudioSessionCategory.playback,
+        options: {
+          AVAudioSessionOptions.mixWithOthers, // Keeps iOS happy
+          AVAudioSessionOptions.defaultToSpeaker
+        },
+      ),
+    );
+    // Apply this ONCE globally, not inside the loop
+    await _audioPlayer.setAudioContext(session);
   }
 
   /// Load saved projects
@@ -120,7 +149,11 @@ class VideoViewModel extends ChangeNotifier {
     _chewieController?.dispose();
     await _videoController?.dispose();
 
-    _videoController = VideoPlayerController.file(videoFile);
+    _videoController = VideoPlayerController.file(
+      videoFile,
+      videoPlayerOptions: VideoPlayerOptions(
+          mixWithOthers: true), // CRITICAL: Don't pause on focus loss
+    );
     await _videoController!.initialize();
 
     _chewieController = ChewieController(
@@ -128,12 +161,42 @@ class VideoViewModel extends ChangeNotifier {
       aspectRatio: _aspectRatio,
       autoPlay: false,
       looping: false,
-      showControls: true,
+      showControls: false, // Disable controls to prevent conflict with timeline
     );
 
     // Listen to playback for caption updates
-    _videoController!.addListener(_updateCaptionOverlay);
+    _videoController!.addListener(_onVideoTick);
 
+    notifyListeners();
+  }
+
+  // ... (keeping generateCaptions and others) ...
+
+  // ... (skipping to togglePlayback) ...
+
+  /// Toggle video playback
+  Future<void> togglePlayback() async {
+    if (_videoController == null) return;
+
+    print("TogglePlayback: Current Master=$_isPlaying");
+
+    if (_isPlaying) {
+      // PAUSE
+      _isPlaying = false;
+      await _pauseAll();
+    } else {
+      // PLAY
+      _isPlaying = true;
+
+      // Seek to start if at end
+      if (_videoController!.value.position >=
+          _videoController!.value.duration) {
+        print("TogglePlayback: At end, seeking to start.");
+        await _videoController!.seekTo(Duration.zero);
+      }
+      print("TogglePlayback: Starting video.");
+      await _videoController!.play();
+    }
     notifyListeners();
   }
 
@@ -149,15 +212,13 @@ class VideoViewModel extends ChangeNotifier {
       File videoToUpload = _videoFile!;
 
       // Check for voiceover and merge if present
-      if (_recordedAudioPath != null) {
+      if (_voiceoverSegments.isNotEmpty) {
         _statusMessage = 'Merging voiceover...';
         notifyListeners();
         try {
           videoToUpload = await _exportService.mergeAudioVideo(
             videoFile: _videoFile!,
-            audioPath: _recordedAudioPath!,
-            audioStart: _voiceoverStart,
-            audioEnd: _voiceoverEnd,
+            segments: _voiceoverSegments,
           );
         } catch (e) {
           print("Error merging audio for captions: $e");
@@ -242,9 +303,7 @@ class VideoViewModel extends ChangeNotifier {
         aspectRatio: _aspectRatioName,
         template: _selectedTemplate,
         outputPath: outputPath,
-        voiceoverAudioPath: _recordedAudioPath,
-        voiceoverStart: _voiceoverStart,
-        voiceoverEnd: _voiceoverEnd,
+        segments: _voiceoverSegments,
         onStatusUpdate: (status) {
           _statusMessage = status;
           notifyListeners();
@@ -283,11 +342,129 @@ class VideoViewModel extends ChangeNotifier {
     }
   }
 
-  /// Update caption overlay based on video position
-  void _updateCaptionOverlay() {
-    if (_videoController == null || !_videoController!.value.isPlaying) return;
+  // Audio Sync Guard
+  bool _isAudioSyncing = false;
 
-    final currentPos = _videoController!.value.position;
+  // Master Playback Switch (Target State)
+  bool _isPlaying = false;
+  bool get isPlaying => _isPlaying;
+
+  /// Main Loop: Runs on every video frame
+  void _onVideoTick() {
+    if (_videoController == null) return;
+
+    final videoPos = _videoController!.value.position;
+    final duration = _videoController!.value.duration;
+    final videoIsPlaying = _videoController!.value.isPlaying;
+
+    // Debug Log (Throttle this if too spammy, but for now we need it)
+    // print("Tick: Pos=$videoPos, Master=$_isPlaying, VideoPlaying=$videoIsPlaying");
+
+    // 1. Handle Recording Auto-Stop
+    if (_isRecording && videoPos >= duration) {
+      print("Tick: Auto-stop recording at end");
+      stopRecording();
+      return;
+    }
+
+    // 2. Handle Playback End
+    if (_isPlaying && videoPos >= duration) {
+      print("Tick: Playback ended. Resetting.");
+      _isPlaying = false;
+      _pauseAll();
+      notifyListeners();
+      return;
+    }
+
+    // 3. Strict Sync: Audio follows Video
+    if (_isPlaying) {
+      if (videoIsPlaying) {
+        _syncAudio(videoPos);
+      } else {
+        print("Tick: Master is ON but Video is PAUSED. Pausing Audio.");
+        _pauseAudio();
+      }
+    } else {
+      // Master is OFF
+      if (videoIsPlaying) {
+        print("Tick: Master is OFF but Video is PLAYING. Pausing Video.");
+        _videoController!.pause();
+      }
+      _pauseAudio();
+    }
+
+    // 4. Update Captions
+    _updateCaptions(videoPos);
+  }
+
+  /// Sync audio player to video position
+  Future<void> _syncAudio(Duration videoPos) async {
+    if (_isAudioSyncing) return;
+
+    try {
+      _isAudioSyncing = true;
+
+      VoiceoverSegment? activeSegment;
+      for (final segment in _voiceoverSegments) {
+        if (videoPos >= segment.videoStart && videoPos < segment.videoEnd) {
+          activeSegment = segment;
+          break;
+        }
+      }
+
+      if (activeSegment != null) {
+        final offset =
+            videoPos - activeSegment.videoStart + activeSegment.sourceStart;
+
+        bool isNewSegment = _currentPlayingSegment?.id != activeSegment.id;
+        bool isNotPlaying = _audioPlayer.state != PlayerState.playing;
+
+        if (isNewSegment || isNotPlaying) {
+          if (offset >= Duration.zero) {
+            print("Sync: Playing segment ${activeSegment.id} at $offset");
+
+            // REMOVED: await _audioPlayer.setAudioContext(...)
+            // Do not re-configure context here. Rely on the global config.
+
+            await _audioPlayer.setVolume(1.0); // Ensure full volume
+
+            await _audioPlayer.play(DeviceFileSource(activeSegment.filePath),
+                position: offset);
+            _currentPlayingSegment = activeSegment;
+          }
+        }
+      } else {
+        if (_audioPlayer.state == PlayerState.playing) {
+          print("Sync: No active segment. Pausing audio.");
+          await _audioPlayer.pause();
+          _currentPlayingSegment = null;
+        }
+      }
+    } catch (e) {
+      print("Sync error: $e");
+    } finally {
+      _isAudioSyncing = false;
+    }
+  }
+
+  /// Helper to pause audio safely
+  Future<void> _pauseAudio() async {
+    if (_audioPlayer.state == PlayerState.playing) {
+      print("PauseAudio: Stopping audio player.");
+      await _audioPlayer.pause();
+      _currentPlayingSegment = null;
+    }
+  }
+
+  /// Helper to pause everything
+  Future<void> _pauseAll() async {
+    print("PauseAll: Stopping everything.");
+    if (_videoController!.value.isPlaying) await _videoController!.pause();
+    await _pauseAudio();
+  }
+
+  /// Update caption overlay logic
+  void _updateCaptions(Duration currentPos) {
     String text = '';
     List<String> words = [];
     int highlightedCount = 0;
@@ -303,9 +480,7 @@ class VideoViewModel extends ChangeNotifier {
           return Duration(
               minutes: minutes, seconds: seconds, milliseconds: milliseconds);
         }
-      } catch (e) {
-        // Fallback
-      }
+      } catch (e) {}
       return Duration.zero;
     }
 
@@ -316,8 +491,6 @@ class VideoViewModel extends ChangeNotifier {
       if (currentPos >= start && currentPos < end) {
         text = caption.text;
         words = caption.words.map((w) => w.word).toList();
-
-        // Calculate highlighted count based on word timings
         for (int i = 0; i < caption.words.length; i++) {
           final wStart = parseTime(caption.words[i].start);
           if (currentPos >= wStart) {
@@ -343,7 +516,12 @@ class VideoViewModel extends ChangeNotifier {
 
     final duration = TimeUtils.parseTimestamp(timestamp);
     await _videoController!.seekTo(duration);
+
+    // Auto-play when seeking via caption? Maybe.
+    // For now, let's respect the current state or force play.
+    _isPlaying = true;
     await _videoController!.play();
+    notifyListeners();
   }
 
   /// Change language selection
@@ -392,23 +570,12 @@ class VideoViewModel extends ChangeNotifier {
   final VoiceoverService _voiceoverService = VoiceoverService();
   bool _isVoiceoverMode = false;
   bool _isRecording = false;
-  String? _recordedAudioPath;
+  List<VoiceoverSegment> _voiceoverSegments = [];
+  Duration? _recordingStartVideoPos;
 
   bool get isVoiceoverMode => _isVoiceoverMode;
   bool get isRecording => _isRecording;
-  String? get recordedAudioPath => _recordedAudioPath;
-
-  // Trimming State
-  Duration? _voiceoverStart;
-  Duration? _voiceoverEnd;
-  Duration? get voiceoverStart => _voiceoverStart;
-  Duration? get voiceoverEnd => _voiceoverEnd;
-
-  void setVoiceoverTrim(Duration start, Duration end) {
-    _voiceoverStart = start;
-    _voiceoverEnd = end;
-    notifyListeners();
-  }
+  List<VoiceoverSegment> get voiceoverSegments => _voiceoverSegments;
 
   // Expose controller for UI
   get recorderController => _voiceoverService.recorderController;
@@ -429,51 +596,138 @@ class VideoViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> deleteVoiceover() async {
-    await _voiceoverService.deleteRecording();
-    _recordedAudioPath = null;
-    _voiceoverStart = null;
-    _voiceoverEnd = null;
-    notifyListeners();
-  }
-
   Future<void> startRecording() async {
+    if (_videoController == null) return;
+
     try {
+      // 1. Ensure clean state
+      _isPlaying = false;
+      await _pauseAll();
+
+      // 2. Start Recorder
       await _voiceoverService.startRecording();
       _isRecording = true;
-      // Start video playback to sync
-      await _videoController?.play(); // Corrected from _videoPlayerController
+      _recordingStartVideoPos = _videoController!.value.position;
+
+      // 3. Start Video Playback (Auto-play for context)
+      _isPlaying = true;
+      await _videoController!.play();
+
       notifyListeners();
     } catch (e) {
       print('Error starting recording: $e');
+      _statusMessage = 'Error starting recording';
+      notifyListeners();
     }
   }
 
   Future<void> stopRecording() async {
+    if (!_isRecording) return;
+
     try {
       print("Stopping recording...");
+
+      // 1. Stop Recorder
       final path = await _voiceoverService.stopRecording();
-      print("Recording stopped. Path: $path");
+
+      // 2. Stop Playback
+      _isPlaying = false;
+      await _pauseAll();
       _isRecording = false;
-      _recordedAudioPath = path;
-      // Stop video playback
-      await _videoController?.pause(); // Corrected from _videoPlayerController
+
+      print("Recording stopped. Path: $path");
+
+      if (path != null && _recordingStartVideoPos != null) {
+        // Calculate duration based on video progress
+        final endVideoPos = _videoController!.value.position;
+        final duration = endVideoPos - _recordingStartVideoPos!;
+
+        // Guard against zero duration
+        if (duration > Duration.zero) {
+          final segment = VoiceoverSegment(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            filePath: path,
+            videoStart: _recordingStartVideoPos!,
+            sourceStart: Duration.zero,
+            sourceEnd: duration,
+          );
+
+          _voiceoverSegments.add(segment);
+          _voiceoverSegments
+              .sort((a, b) => a.videoStart.compareTo(b.videoStart));
+        }
+      }
+
+      _recordingStartVideoPos = null;
       notifyListeners();
     } catch (e) {
       print('Error stopping recording: $e');
     }
   }
 
-  void deleteRecording() {
-    _recordedAudioPath = null;
+  void deleteSegment(String id) {
+    _voiceoverSegments.removeWhere((s) => s.id == id);
+    notifyListeners();
+  }
+
+  void splitSegment(String id, Duration splitPoint) {
+    final index = _voiceoverSegments.indexWhere((s) => s.id == id);
+    if (index == -1) return;
+
+    final original = _voiceoverSegments[index];
+
+    // splitPoint is relative to the segment start in the video timeline?
+    // Or absolute video time? Let's assume absolute video time for easier UI integration.
+
+    if (splitPoint <= original.videoStart || splitPoint >= original.videoEnd) {
+      return; // Invalid split point
+    }
+
+    final relativeSplit = splitPoint - original.videoStart;
+    final sourceSplit = original.sourceStart + relativeSplit;
+
+    final segmentA = VoiceoverSegment(
+      id: '${original.id}_a',
+      filePath: original.filePath,
+      videoStart: original.videoStart,
+      sourceStart: original.sourceStart,
+      sourceEnd: sourceSplit,
+    );
+
+    final segmentB = VoiceoverSegment(
+      id: '${original.id}_b',
+      filePath: original.filePath,
+      videoStart: splitPoint,
+      sourceStart: sourceSplit,
+      sourceEnd: original.sourceEnd,
+    );
+
+    _voiceoverSegments.removeAt(index);
+    _voiceoverSegments.insert(index, segmentA);
+    _voiceoverSegments.insert(index + 1, segmentB);
+    notifyListeners();
+  }
+
+  void updateSegment(VoiceoverSegment updatedSegment) {
+    final index =
+        _voiceoverSegments.indexWhere((s) => s.id == updatedSegment.id);
+    if (index != -1) {
+      _voiceoverSegments[index] = updatedSegment;
+      // Sort segments by start time to keep timeline ordered
+      _voiceoverSegments.sort((a, b) => a.videoStart.compareTo(b.videoStart));
+      notifyListeners();
+    }
+  }
+
+  void clearAllVoiceovers() {
+    _voiceoverSegments.clear();
     notifyListeners();
   }
 
   @override
   void dispose() {
     _chewieController?.dispose();
-    _videoController?.removeListener(
-        _updateCaptionOverlay); // Keep existing listener removal
+    _videoController?.removeListener(_onVideoTick);
     _videoController?.dispose();
     _voiceoverService.dispose(); // Add new dispose for voiceover service
     super.dispose();

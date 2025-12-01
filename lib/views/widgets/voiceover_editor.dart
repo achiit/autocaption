@@ -110,7 +110,8 @@ class _VoiceoverEditorState extends State<VoiceoverEditor> {
                                 TextButton(
                                   onPressed: () {
                                     Navigator.pop(context);
-                                    viewModel.deleteVoiceover();
+                                    // viewModel.deleteSegment(widget.segmentId); // Need segment ID
+                                    Navigator.pop(context);
                                   },
                                   child: const Text(
                                     'Delete',
@@ -129,10 +130,7 @@ class _VoiceoverEditorState extends State<VoiceoverEditor> {
                         onPressed: () {
                           // Save trim values (convert ms to seconds double if needed, or keep as Duration)
                           // ViewModel expects double seconds
-                          viewModel.setVoiceoverTrim(
-                            Duration(milliseconds: _startValue.toInt()),
-                            Duration(milliseconds: _endValue.toInt()),
-                          );
+                          // viewModel.updateSegmentTrim(widget.segmentId, start, end);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Trim saved!')),
                           );
